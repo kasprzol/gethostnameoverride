@@ -163,6 +163,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
 	common();
 	const char *family;
+	const struct sockaddr *orig_addr = addr;
 	switch ( addr->sa_family ) {
 		case AF_INET:
 			family = "IPv4";
@@ -177,7 +178,20 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	printf("I'm in your connect (%s)!\n", family);
 	if ( addr->sa_family == AF_INET ) {
 		const sockaddr_in *a = reinterpret_cast< const sockaddr_in* >( addr );
-		printf( "Connect to %s:%d (IPv4)\n", sockaddr_to_string( addr ).c_str(), ntohs(a->sin_port) );
+		auto dest = sockaddr_to_string( addr );
+		printf( "Connect to %s:%d (IPv4)\n", dest.c_str(), ntohs(a->sin_port) );
+		auto it = hosts_override.find( dest );
+		if ( it != hosts_override.end() ) {
+			printf( "[connect] Redirecting %s to %s\n", dest.c_str(), it->second.c_str() );
+			sockaddr_in *new_addr = reinterpret_cast< sockaddr_in* >( malloc( sizeof( sockaddr_in ) ) );
+			if ( ! new_addr ) {
+				printf( "Failed to allocate memory for the redirected addr struct!\n");
+				exit(1);
+			}
+			memcpy( new_addr, a, sizeof( sockaddr_in ) );
+			inet_pton( AF_INET, it->second.c_str(), &new_addr->sin_addr.s_addr );
+			addr = reinterpret_cast< sockaddr* >( new_addr );
+		}
 #ifdef REDIRECT_PORT_80_TO_8080
 		if ( ntohs( a->sin_port ) == 80 ) {
 			a->sin_port = htons( 8080 );
@@ -199,6 +213,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		printf( "Connection error! errno = %d(%s)\n", errno, strerror( errno ) );
 	} else {
 		printf( "Connected successfully\n" );
+	}
+	if ( addr != orig_addr ) {
+		free( const_cast< struct sockaddr* >( addr ) );
 	}
 	return ret;
 }
