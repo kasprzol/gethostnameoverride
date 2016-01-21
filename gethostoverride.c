@@ -106,6 +106,7 @@ extern "C" {
 
 struct hostent *gethostbyname(const char *name)
 {
+  common();
 	printf("I'm in your gethostbyname! Checking [%s]\n", name);
 	auto it = hosts_override.find(name);
 	if ( it != hosts_override.end() ) {
@@ -221,4 +222,3 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 }
 
 } // extern "C" {
-
